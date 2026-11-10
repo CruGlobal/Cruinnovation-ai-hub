@@ -1,0 +1,23 @@
+name: Deploy to aihub.crutastic.com
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  id-token: write # assume the AWS OIDC deploy role
+  contents: read
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+      - run: aws s3 sync . "s3://${{ vars.AWS_S3_BUCKET }}/" --delete --exclude ".git*" --exclude ".claude/*" --exclude ".env" --exclude "README*"
+      - run: aws cloudfront create-invalidation --distribution-id "${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID }}" --paths "/*"
